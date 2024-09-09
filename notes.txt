@@ -1,0 +1,16 @@
+Current method is a little silly. Taking bytes converting them into pixels and filling out an array. Idealy we could just save
+the file under a different format an it would be interpretted differently. Problem is i don't really know how PNG's are saved or if 
+things are that simple. So now to decode I have to read pixel by pixel. Got it. 
+
+First Goal I want to do right now:
+1. start pushing to github
+2. reconstruct PDFs based on bytes
+
+Encode TODO:
+1. If file is big, save in multiple PNGs
+2. Convert PNGs to video format
+
+Decode TODO:
+1. have it read the metadata at first to reconstruct the proper file type/reconstruct based on file type
+2. be able to use pixel size greater than 1 
+3. take in video -> convert to pngs -> the reconstruct 
