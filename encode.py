@@ -1,4 +1,3 @@
-
 import numpy as np
 from PIL import Image
 from textwrap import wrap
@@ -6,10 +5,12 @@ import sys
 import os
 import io
 
+# TODO: make sure resolution and block size jive 
 
 def updateImgArr(imgArr, pixel, blockSize, write_index, resolutionX):
     startRow    = write_index // resolutionX
     startColumn = write_index % resolutionX
+    # print(f'row: {startRow}-{startRow + blockSize} Col: {startColumn}-{startColumn+ blockSize}')
     for i in range(startRow, startRow + blockSize):
         for j in range(startColumn, startColumn + blockSize):
             imgArr[i][j] = pixel
@@ -46,18 +47,19 @@ def extensionToNum(fileType):
 # for now txt = 1, pdf = 2, we'll formalize this later
 # 4 ints which is
 # writes header in pixels for the file
+# !currently thinking about blocks of size 3 and 1 so adding in 2 blocks of buffer
 def writeFileSpecs(imgArr, inputFile, resolutionX, resolutionY, blockSize):
     fileExtension = os.path.splitext(inputFile)[1]
     fileType = extensionToNum(fileExtension[1:])
     # for later reconstruction record type of file
-    fileTuple = (0, 0, fileType)
+    fileTuple = (fileType, 0, 0)
     # for later reconstruction record resolutions
-    resXTuple = (0, 0, resolutionX)
-    resYTuple = (0, 0, resolutionY)
+    resXTuple = (resolutionX, 0, 0)
+    resYTuple = (resolutionY, 0, 0)
     # for later reconstruction record blockSize
-    blockSizeTuple = (blockSize, blockSize, blockSize)
-    for i, tup in enumerate([fileTuple, resXTuple, resYTuple, blockSizeTuple]):
-        print(i, tup)
+    blockSizeTuple = (blockSize, 0, 0)
+    buffer = (255,255,255)
+    for i, tup in enumerate([fileTuple, resXTuple, resYTuple, blockSizeTuple, buffer, buffer]):
         arr = updateImgArr(imgArr, tup, blockSize, i, resolutionX)
     return arr
 
@@ -67,8 +69,9 @@ def writeFileToImage(inputFile, resolutionX, resolutionY, blockSize):
     imgArr = [[(0,0,0)] * resolutionX for _ in range(resolutionY)]
     # write some file metadata
     imgArr = writeFileSpecs(imgArr, inputFile, resolutionX, resolutionY, blockSize)
-    # current metadata takes up first 3 postions
-    write_index = 4
+    # current metadata takes up first  postions
+    # !this is a magic number because i'm working on other things
+    write_index = 6
     # read 3 bytes at a time - RGB uses 3 bytes
     byte_size = 3
     with open(inputFile, 'rb') as f:
@@ -78,18 +81,19 @@ def writeFileToImage(inputFile, resolutionX, resolutionY, blockSize):
             # convert bytes into
             pixel = bytesToRGB(byte.ljust(3,b'\x00'))
             imgArr = updateImgArr(imgArr, pixel, blockSize, write_index, resolutionX)
+            # TODO: fix write index 
             write_index+=blockSize
     arrToImg(imgArr, resolutionX, resolutionY)
         
 
 def main():
-    inputFile = "testInput.txt"
+    inputFile = "testFiles/tutorial.pdf"
     outputFile = "testOutput.txt"
     # print("Please enter resolution and Pixel Block size. ex: \"(720,480) 4 \" ")
     arguments = sys.argv
     if len(arguments) < 2:
-        resolutionX = 10
-        resolutionY = 10
+        resolutionX = 75
+        resolutionY = 75
         blockSize = 1
     elif len(arguments) > 3:
         print("Too many arguments")
