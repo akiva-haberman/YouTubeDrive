@@ -5,17 +5,21 @@ import sys
 import os
 import io
 
-# TODO: make sure resolution and block size jive 
-
 def updateImgArr(imgArr, pixel, blockSize, write_index, resolutionX):
     startRow    = write_index // resolutionX
     startColumn = write_index % resolutionX
-    # print(f'row: {startRow}-{startRow + blockSize} Col: {startColumn}-{startColumn+ blockSize}')
+    # print(f'row: {startRow}-{startRow + blockSize -1} Col: {startColumn}-{startColumn + blockSize - 1}')
     for i in range(startRow, startRow + blockSize):
         for j in range(startColumn, startColumn + blockSize):
             imgArr[i][j] = pixel
     return imgArr
 
+def get_write_index(resolutionX, blockSize):
+    # there are 4 metadata fields
+    initId = 4 
+    while initId % blockSize != 0:
+        initId+=1
+    return initId * blockSize
 
 def bytesToRGB(x):
     # wrapper = TextWrapper(width = 2)
@@ -47,7 +51,6 @@ def extensionToNum(fileType):
 # for now txt = 1, pdf = 2, we'll formalize this later
 # 4 ints which is
 # writes header in pixels for the file
-# !currently thinking about blocks of size 3 and 1 so adding in 2 blocks of buffer
 def writeFileSpecs(imgArr, inputFile, resolutionX, resolutionY, blockSize):
     fileExtension = os.path.splitext(inputFile)[1]
     fileType = extensionToNum(fileExtension[1:])
@@ -58,9 +61,10 @@ def writeFileSpecs(imgArr, inputFile, resolutionX, resolutionY, blockSize):
     resYTuple = (resolutionY, 0, 0)
     # for later reconstruction record blockSize
     blockSizeTuple = (blockSize, 0, 0)
-    buffer = (255,255,255)
-    for i, tup in enumerate([fileTuple, resXTuple, resYTuple, blockSizeTuple, buffer, buffer]):
-        arr = updateImgArr(imgArr, tup, blockSize, i, resolutionX)
+    # record meta data as first blocks
+    metaData = [fileTuple, resXTuple, resYTuple, blockSizeTuple]
+    for i, tup in enumerate(metaData):
+        arr = updateImgArr(imgArr, tup, blockSize, i*blockSize, resolutionX)
     return arr
 
 # writes a file to an image given a file, resolution, and blockSize (num pixels per side of square)
@@ -69,9 +73,9 @@ def writeFileToImage(inputFile, resolutionX, resolutionY, blockSize):
     imgArr = [[(0,0,0)] * resolutionX for _ in range(resolutionY)]
     # write some file metadata
     imgArr = writeFileSpecs(imgArr, inputFile, resolutionX, resolutionY, blockSize)
-    # current metadata takes up first  postions
-    # !this is a magic number because i'm working on other things
-    write_index = 6
+    # current metadata takes up first 4 postions
+    write_index = get_write_index(resolutionX, blockSize)
+    print(write_index)
     # read 3 bytes at a time - RGB uses 3 bytes
     byte_size = 3
     with open(inputFile, 'rb') as f:
@@ -81,7 +85,10 @@ def writeFileToImage(inputFile, resolutionX, resolutionY, blockSize):
             # convert bytes into
             pixel = bytesToRGB(byte.ljust(3,b'\x00'))
             imgArr = updateImgArr(imgArr, pixel, blockSize, write_index, resolutionX)
-            # TODO: fix write index 
+            # TODO: make a little nicer if you have time 
+            # moving forward the writeindex at the end of a row
+            if (write_index + blockSize - 1) % resolutionX == resolutionX -1:
+                write_index+=resolutionX * (blockSize - 1)
             write_index+=blockSize
     arrToImg(imgArr, resolutionX, resolutionY)
         
@@ -101,6 +108,10 @@ def main():
     else:
         resolutionX, resolutionY = int(arguments[1]), int(arguments[1])
         blockSize                = int(arguments[2])
+        if resolutionX % blockSize or resolutionY % blockSize:
+            # todo: learn errors and raise this nicely
+            print("blockSize must evenly divide resolution")
+            return
     print(f"Resolution = {resolutionX}X{resolutionY}")
     writeFileToImage(inputFile, resolutionX, resolutionY, blockSize)
 
