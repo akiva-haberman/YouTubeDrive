@@ -15,12 +15,15 @@ def get_byte_arr(arr, blockSize):
     colors = arr[:,blockSize//2,:, blockSize//2,:]
     return colors.flatten()
 
+# def get_file_specs(arr):
+
+
 def writeImageToFile(inputFile, outFile):
     with Image.open(inputFile) as im:
         arr = np.array(im)
-        bytes = get_byte_arr(arr, 3)
-        with open(outFile, 'wb') as f:
-            f.write(bytes)
+    bytes = get_byte_arr(arr, 3)
+    with open(outFile, 'wb') as f:
+        f.write(bytes)
             
         
 def main():

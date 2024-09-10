@@ -5,6 +5,9 @@ import sys
 import os
 import io
 
+# number of fields being recorded
+metaDataSize = 6
+
 def updateImgArr(imgArr, pixel, blockSize, write_index, resolutionX):
     startRow    = write_index // resolutionX
     startColumn = write_index % resolutionX
@@ -14,12 +17,12 @@ def updateImgArr(imgArr, pixel, blockSize, write_index, resolutionX):
             imgArr[i][j] = pixel
     return imgArr
 
-def get_write_index(resolutionX, blockSize):
-    # there are 4 metadata fields
-    initId = 4 
-    while initId % blockSize != 0:
-        initId+=1
-    return initId * blockSize
+def get_min_resolution(fileSize, blockSize):
+    # there are usually 4 metadata fields
+    res = int((fileSize*blockSize**2/3)**(0.5)) + metaDataSize + 1
+    while res % blockSize != 0:
+        res+=1
+    return res
 
 def bytesToRGB(x):
     # wrapper = TextWrapper(width = 2)
@@ -61,8 +64,10 @@ def writeFileSpecs(imgArr, inputFile, resolutionX, resolutionY, blockSize):
     resYTuple = (resolutionY, 0, 0)
     # for later reconstruction record blockSize
     blockSizeTuple = (blockSize, 0, 0)
+    # want big dif in color truing experiment
+    black, white = (0,0,0), (255,255,255)
     # record meta data as first blocks
-    metaData = [fileTuple, resXTuple, resYTuple, blockSizeTuple]
+    metaData = [black, white, fileTuple, resXTuple, resYTuple, blockSizeTuple]
     for i, tup in enumerate(metaData):
         arr = updateImgArr(imgArr, tup, blockSize, i*blockSize, resolutionX)
     return arr
@@ -74,7 +79,8 @@ def writeFileToImage(inputFile, resolutionX, resolutionY, blockSize):
     # write some file metadata
     imgArr = writeFileSpecs(imgArr, inputFile, resolutionX, resolutionY, blockSize)
     # current metadata takes up first 4 postions
-    write_index = get_write_index(resolutionX, blockSize)
+    # write_index = get_write_index(resolutionX, blockSize)
+    write_index = metaDataSize * blockSize
     print(write_index)
     # read 3 bytes at a time - RGB uses 3 bytes
     byte_size = 3
@@ -102,6 +108,11 @@ def main():
         resolutionX = 75
         resolutionY = 75
         blockSize = 1
+    elif len(arguments) == 2:
+        blockSize = int(arguments[1])
+        fileSize = os.path.getsize(inputFile)
+        res = get_min_resolution(fileSize, blockSize)
+        resolutionX, resolutionY = res, res
     elif len(arguments) > 3:
         print("Too many arguments")
         sys.exit()
