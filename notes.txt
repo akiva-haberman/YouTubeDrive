@@ -7,10 +7,11 @@ First Goals I want to do right now:
 
 Encode TODO:
 1. If file is big, save in multiple PNGs
+    - based on specified resolution calculate how many pngs are needed 
 2. Convert PNGs to video format
 
 Decode TODO:
-1. have it read the metadata at first to reconstruct the proper file type/reconstruct based on file type
 3. take in video -> convert to pngs -> the reconstruct 
+
 
 cool idea if all 3 color values were teh same byte you could have some sort of error correction by choosing the common value...

@@ -16,6 +16,13 @@ def index_to_center_coord(index, blockSize, resX):
     halfSide = blockSize // 2
     return (row + halfSide, col + halfSide)
 
+# rn just cutting of all trailing 0's on a file ... could lead to trouble down the line
+def get_EOF(colors):
+    index = len(colors) - 1
+    while colors[index] == 0:
+        index -=1 
+    return index + 1
+
 def get_byte_arr(arr, blockSize, metaDataSize):
     n, m, d = arr.shape
     assert n % blockSize == 0 and m % blockSize == 0 and d == 3
@@ -24,7 +31,8 @@ def get_byte_arr(arr, blockSize, metaDataSize):
     # todo: look over indexing
     colors = arr[:,blockSize//2,:, blockSize//2,:]
     flat =  colors.flatten()
-    return flat[metaDataSize * MAGIC_META_NUMBER:]
+    eof = get_EOF(flat)
+    return flat[metaDataSize * MAGIC_META_NUMBER:eof]
 
 # this is crude and would work if the pixels don't get messed up
 def get_file_specs(imgArr):
@@ -72,6 +80,7 @@ def writeImageToFile(inputFile, outName):
         imgArr = np.array(im)
     metaDataSize, fileNum, _, _, blockSize = get_file_specs(imgArr)
     bytes = get_byte_arr(imgArr, blockSize, metaDataSize)
+    print(bytes)
     outFile = outName + num_to_extension(fileNum)
     with open(outFile, 'wb') as f:
         f.write(bytes)
