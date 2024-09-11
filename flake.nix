@@ -8,16 +8,17 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
-        python = pkgs.python3;
+        python = pkgs.python312;
       in
       {
         formatter = pkgs.nixpkgs-fmt;
         devShells.default = with pkgs; mkShell {
           packages = [ 
-            cowsay 
+            cowsay
             ( python.withPackages (p: with p; [
             numpy
             pillow
+            opencv4
           ])) ];
         };
       }

@@ -7,7 +7,8 @@ First Goals I want to do right now:
 
 Encode TODO:
 1. If file is big, save in multiple PNGs
-    - based on specified resolution calculate how many pngs are needed 
+   - new function that breaks up the data into even (except one maybe) size and puts into images 
+   - if all images have metaData will make slightly easier for me... so i'll be lazy right now
 2. Convert PNGs to video format
 
 Decode TODO:

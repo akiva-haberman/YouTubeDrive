@@ -3,19 +3,22 @@ from PIL import Image
 from textwrap import wrap
 import sys
 import os
-import io
-from decode import MAGIC_META_NUMBER
-import math
+# from decode import MAGIC_META_NUMBER
 
 
 # number of fields being recorded
 metaDataSize = 7
+# will fix when i'm not lazy (cicular imports)
+MAGIC_META_NUMBER = 3
 
-def update_write_index(write_index, blockSide, resX):
-    if (write_index + blockSide - 1) % resX == resX -1:
-        write_index+=resX * (blockSide - 1)
-    write_index+=blockSide
-    return write_index
+
+def get_new_file_name(base_name, extension):
+    filename = f"{base_name}.{extension}"
+    counter = 1
+    while os.path.exists(filename):
+        filename = f"{base_name}{counter}.{extension}"
+        counter+=1
+    return filename
 
 # gives the top left pixel in blockSide
 def index_to_coord(index, blockSide, resX):
@@ -33,14 +36,14 @@ def update_img_arr(imgArr, pixel, blockSide, write_index, resX):
     return imgArr
 
 # currently assuming square resolution
-def num_pngs(fileSize, blockSide, resX):
-    total = fileSize + metaDataSize * MAGIC_META_NUMBER
-    numPixels = resX ** 2
+# this is a dumb func, we only need pagebytes
+def bytes_per_png(blockSide, resX):
+    pagePixels = resX ** 2
     blockSize = blockSide ** 2
     # nice thinking dog
     bytesPerPixel = 3
-    pageBytes = (numPixels / blockSide) * bytesPerPixel
-    return math.ceil(total / pageBytes)
+    pageBytes = (pagePixels / blockSize) * bytesPerPixel
+    return int(pageBytes)
 
 def get_min_resolution(fileSize, blockSide):
     # there are usually 4 metadata fields
@@ -50,6 +53,7 @@ def get_min_resolution(fileSize, blockSide):
     return res
 
 def bytesToRGB(x):
+    # todo: comeback to this i think we can do it more effeciently 
     # wrapper = TextWrapper(width = 2)
     red, green, blue = wrap(x.hex(), 2)
     return (int(red,16), int(green,16), int(blue,16))
@@ -103,44 +107,47 @@ def writeFileSpecs(imgArr, inputFile, resX, resY, blockSide):
     return (arr, write_index)
 
 # writes a file to an image given a file, resolution, and blockSide (num pixels per side of square)
-def writeFileToImage(inputFile, resX, resY, blockSide):
+def writeFileToImage(inputFile, resX, resY, blockSide, outName, bytesPerPng):
     # initialize array of tuples to be converted into image
     imgArr = [[(0,0,0)] * resX for _ in range(resY)]
     # write some file metadata
     imgArr, write_index = writeFileSpecs(imgArr, inputFile, resX, resY, blockSide)
     # current metadata takes up first 4 postions
-    # write_index = get_write_index(resX, blockSide)
-    write_index = 7
+    # write_index = 7
     # read 3 bytes at a time - RGB uses 3 bytes
-    byte_size = 3
+    chunk_size = 3
     with open(inputFile, 'rb') as f:
-        while (byte := f.read(byte_size)):
+        while (byte := f.read(chunk_size)):
+            if 3 * write_index // bytesPerPng > 0:
+                outFile = get_new_file_name(outName, 'png')
+                arrToImg(imgArr, resX, resY, outFile)
+                write_index = 0
             # convert bytes into
             pixel = bytesToRGB(byte.ljust(3,b'\x00'))
             imgArr = update_img_arr(imgArr, pixel, blockSide, write_index, resX)
             write_index+=1
+        outFile = get_new_file_name(outName, 'png')
+        arrToImg(imgArr, resX, resY, outFile)
             
-    arrToImg(imgArr, resX, resY)
         
 
 def main():
     inputFile = "testFiles/tutorial.pdf"
-    outFile = "testOutput.txt"
-    # print("Please enter resolution and Pixel Block size. ex: \"(720,480) 4 \" ")
+    outName = "./outDir/testOutput"
+    fileSize = os.path.getsize(inputFile)
     arguments = sys.argv
-    if len(arguments) < 2:
+    if len(arguments) == 1:
         resX = 75
         resY = 75
         blockSide = 1
     elif len(arguments) == 2:
         blockSide = int(arguments[1])
-        fileSize = os.path.getsize(inputFile)
         res = get_min_resolution(fileSize, blockSide)
         resX, resY = res, res
     elif len(arguments) > 3:
         print("Too many arguments")
         sys.exit()
-    else:
+    else: # ==3 are you dumb?
         resX, resY = int(arguments[1]), int(arguments[1])
         blockSide                = int(arguments[2])
         if resX % blockSide or resY % blockSide:
@@ -148,7 +155,9 @@ def main():
             print("blockSide must evenly divide resolution")
             return
     print(f"Resolution = {resX}X{resY}")
-    writeFileToImage(inputFile, resX, resY, blockSide, outFile)
+    bpp = bytes_per_png(blockSide, resX)
+    print(bpp)
+    writeFileToImage(inputFile, resX, resY, blockSide, outName, bpp)
 
 
 if __name__ == "__main__":
