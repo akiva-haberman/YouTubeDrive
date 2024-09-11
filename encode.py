@@ -15,11 +15,16 @@ def update_write_index(write_index, blockSize, resX):
     write_index+=blockSize
     return write_index
 
-# writing pixels from the top left corner
-def updateImgArr(imgArr, pixel, blockSize, write_index, resX):
-    startRow    = write_index // resX
-    startColumn = write_index % resX
-    print(f'row: {startRow}-{startRow + blockSize -1} Col: {startColumn}-{startColumn + blockSize - 1}')
+# gives the top left pixel in blockSize
+def index_to_coord(index, blockSize, resX):
+    row = (index * blockSize // resX ) * blockSize
+    col = (index * blockSize % resX) 
+    return (row, col)
+
+def update_img_arr(imgArr, pixel, blockSize, write_index, resX):
+    # this feels weird, but may be necessary
+    startRow, startColumn    = index_to_coord(write_index, blockSize, resX)
+    # print(f' write_index = {write_index} row: {startRow}-{startRow + blockSize -1} Col: {startColumn}-{startColumn + blockSize - 1}')
     for i in range(startRow, startRow + blockSize):
         for j in range(startColumn, startColumn + blockSize):
             imgArr[i][j] = pixel
@@ -81,10 +86,8 @@ def writeFileSpecs(imgArr, inputFile, resX, resY, blockSize):
     metaData = [black, white, metaDataTuple, fileTuple, resXTuple, resYTuple, blockSizeTuple]
     write_index = 0
     for i, tup in enumerate(metaData):
-        arr = updateImgArr(imgArr, tup, blockSize, write_index, resX)
-        write_index = update_write_index(write_index, blockSize, resX)
-    write_index = update_write_index(write_index, blockSize, resX)
-
+        arr = update_img_arr(imgArr, tup, blockSize, write_index, resX)
+        write_index+=1
     return (arr, write_index)
 
 # writes a file to an image given a file, resolution, and blockSize (num pixels per side of square)
@@ -95,25 +98,21 @@ def writeFileToImage(inputFile, resX, resY, blockSize):
     imgArr, write_index = writeFileSpecs(imgArr, inputFile, resX, resY, blockSize)
     # current metadata takes up first 4 postions
     # write_index = get_write_index(resX, blockSize)
-    # write_index = metaDataSize * blockSize
-    print(write_index)
+    write_index = 7
     # read 3 bytes at a time - RGB uses 3 bytes
     byte_size = 3
     with open(inputFile, 'rb') as f:
-        # im = Image.open(io.BytesIO(f.read(3)))
-        # im.close()
         while (byte := f.read(byte_size)):
             # convert bytes into
             pixel = bytesToRGB(byte.ljust(3,b'\x00'))
-            imgArr = updateImgArr(imgArr, pixel, blockSize, write_index, resX)
-            # TODO: make a little nicer if you have time 
-            write_index = update_write_index(write_index, blockSize, resX)
+            imgArr = update_img_arr(imgArr, pixel, blockSize, write_index, resX)
+            write_index+=1
             
     arrToImg(imgArr, resX, resY)
         
 
 def main():
-    inputFile = "testInput.txt"
+    inputFile = "testFiles/tutorial.pdf"
     outputFile = "testOutput.txt"
     # print("Please enter resolution and Pixel Block size. ex: \"(720,480) 4 \" ")
     arguments = sys.argv
