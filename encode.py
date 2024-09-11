@@ -4,36 +4,48 @@ from textwrap import wrap
 import sys
 import os
 import io
+from decode import MAGIC_META_NUMBER
+import math
 
 
 # number of fields being recorded
 metaDataSize = 7
 
-def update_write_index(write_index, blockSize, resX):
-    if (write_index + blockSize - 1) % resX == resX -1:
-        write_index+=resX * (blockSize - 1)
-    write_index+=blockSize
+def update_write_index(write_index, blockSide, resX):
+    if (write_index + blockSide - 1) % resX == resX -1:
+        write_index+=resX * (blockSide - 1)
+    write_index+=blockSide
     return write_index
 
-# gives the top left pixel in blockSize
-def index_to_coord(index, blockSize, resX):
-    row = (index * blockSize // resX ) * blockSize
-    col = (index * blockSize % resX) 
+# gives the top left pixel in blockSide
+def index_to_coord(index, blockSide, resX):
+    row = (index * blockSide // resX ) * blockSide
+    col = (index * blockSide % resX) 
     return (row, col)
 
-def update_img_arr(imgArr, pixel, blockSize, write_index, resX):
+def update_img_arr(imgArr, pixel, blockSide, write_index, resX):
     # this feels weird, but may be necessary
-    startRow, startColumn    = index_to_coord(write_index, blockSize, resX)
-    # print(f' write_index = {write_index} row: {startRow}-{startRow + blockSize -1} Col: {startColumn}-{startColumn + blockSize - 1}')
-    for i in range(startRow, startRow + blockSize):
-        for j in range(startColumn, startColumn + blockSize):
+    startRow, startColumn    = index_to_coord(write_index, blockSide, resX)
+    # print(f' write_index = {write_index} row: {startRow}-{startRow + blockSide -1} Col: {startColumn}-{startColumn + blockSide - 1}')
+    for i in range(startRow, startRow + blockSide):
+        for j in range(startColumn, startColumn + blockSide):
             imgArr[i][j] = pixel
     return imgArr
 
-def get_min_resolution(fileSize, blockSize):
+# currently assuming square resolution
+def num_pngs(fileSize, blockSide, resX):
+    total = fileSize + metaDataSize * MAGIC_META_NUMBER
+    numPixels = resX ** 2
+    blockSize = blockSide ** 2
+    # nice thinking dog
+    bytesPerPixel = 3
+    pageBytes = (numPixels / blockSide) * bytesPerPixel
+    return math.ceil(total / pageBytes)
+
+def get_min_resolution(fileSize, blockSide):
     # there are usually 4 metadata fields
-    res = int((fileSize*blockSize**2/3)**(0.5)) + metaDataSize + 1
-    while res % blockSize != 0:
+    res = int((fileSize * blockSide**2 /3)**(0.5)) + metaDataSize + 1
+    while res % blockSide != 0:
         res+=1
     return res
 
@@ -46,11 +58,11 @@ def bytesToHexTriplets(x):
     red, green, blue = wrap(x.hex(), 2)
     return (red, green, blue,)
 
-def arrToImg(arr, resX, resY):
+def arrToImg(arr, resX, resY, outFile):
     array = np.array(arr)
-    array = np.reshape(array,(resY,resX,3))
+    array = np.reshape(array, (resY, resX, 3))
     new_image = Image.fromarray(array.astype(np.uint8), mode='RGB')
-    new_image.save('new.png')
+    new_image.save(outFile)
 
 def byteToBin(x):
     return bin(int(x.hex(), 16))[2:].zfill(8)
@@ -63,11 +75,11 @@ def extensionToNum(fileType):
         return 2
     return 1
 
-# file_type,resolution,blockSize
+# file_type,resolution,blockSide
 # for now txt = 1, pdf = 2, we'll formalize this later
 # 4 ints which is
 # writes header in pixels for the file
-def writeFileSpecs(imgArr, inputFile, resX, resY, blockSize):
+def writeFileSpecs(imgArr, inputFile, resX, resY, blockSide):
 
     fileExtension = os.path.splitext(inputFile)[1]
     fileType = extensionToNum(fileExtension[1:])
@@ -78,26 +90,26 @@ def writeFileSpecs(imgArr, inputFile, resX, resY, blockSize):
     # for later reconstruction record resolutions
     resXTuple = (resX, 0, 0)
     resYTuple = (resY, 0, 0)
-    # for later reconstruction record blockSize
-    blockSizeTuple = (blockSize, 0, 0)
+    # for later reconstruction record blockSide
+    blockSideTuple = (blockSide, 0, 0)
     # want big dif in color truing experiment
     black, white = (0,0,0), (255,255,255)
     # record meta data as first blocks
-    metaData = [black, white, metaDataTuple, fileTuple, resXTuple, resYTuple, blockSizeTuple]
+    metaData = [black, white, metaDataTuple, fileTuple, resXTuple, resYTuple, blockSideTuple]
     write_index = 0
     for i, tup in enumerate(metaData):
-        arr = update_img_arr(imgArr, tup, blockSize, write_index, resX)
+        arr = update_img_arr(imgArr, tup, blockSide, write_index, resX)
         write_index+=1
     return (arr, write_index)
 
-# writes a file to an image given a file, resolution, and blockSize (num pixels per side of square)
-def writeFileToImage(inputFile, resX, resY, blockSize):
+# writes a file to an image given a file, resolution, and blockSide (num pixels per side of square)
+def writeFileToImage(inputFile, resX, resY, blockSide):
     # initialize array of tuples to be converted into image
     imgArr = [[(0,0,0)] * resX for _ in range(resY)]
     # write some file metadata
-    imgArr, write_index = writeFileSpecs(imgArr, inputFile, resX, resY, blockSize)
+    imgArr, write_index = writeFileSpecs(imgArr, inputFile, resX, resY, blockSide)
     # current metadata takes up first 4 postions
-    # write_index = get_write_index(resX, blockSize)
+    # write_index = get_write_index(resX, blockSide)
     write_index = 7
     # read 3 bytes at a time - RGB uses 3 bytes
     byte_size = 3
@@ -105,7 +117,7 @@ def writeFileToImage(inputFile, resX, resY, blockSize):
         while (byte := f.read(byte_size)):
             # convert bytes into
             pixel = bytesToRGB(byte.ljust(3,b'\x00'))
-            imgArr = update_img_arr(imgArr, pixel, blockSize, write_index, resX)
+            imgArr = update_img_arr(imgArr, pixel, blockSide, write_index, resX)
             write_index+=1
             
     arrToImg(imgArr, resX, resY)
@@ -113,30 +125,30 @@ def writeFileToImage(inputFile, resX, resY, blockSize):
 
 def main():
     inputFile = "testFiles/tutorial.pdf"
-    outputFile = "testOutput.txt"
+    outFile = "testOutput.txt"
     # print("Please enter resolution and Pixel Block size. ex: \"(720,480) 4 \" ")
     arguments = sys.argv
     if len(arguments) < 2:
         resX = 75
         resY = 75
-        blockSize = 1
+        blockSide = 1
     elif len(arguments) == 2:
-        blockSize = int(arguments[1])
+        blockSide = int(arguments[1])
         fileSize = os.path.getsize(inputFile)
-        res = get_min_resolution(fileSize, blockSize)
+        res = get_min_resolution(fileSize, blockSide)
         resX, resY = res, res
     elif len(arguments) > 3:
         print("Too many arguments")
         sys.exit()
     else:
         resX, resY = int(arguments[1]), int(arguments[1])
-        blockSize                = int(arguments[2])
-        if resX % blockSize or resY % blockSize:
+        blockSide                = int(arguments[2])
+        if resX % blockSide or resY % blockSide:
             # todo: learn errors and raise this nicely
-            print("blockSize must evenly divide resolution")
+            print("blockSide must evenly divide resolution")
             return
     print(f"Resolution = {resX}X{resY}")
-    writeFileToImage(inputFile, resX, resY, blockSize)
+    writeFileToImage(inputFile, resX, resY, blockSide, outFile)
 
 
 if __name__ == "__main__":
