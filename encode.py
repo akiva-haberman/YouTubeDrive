@@ -3,6 +3,7 @@ from PIL import Image
 from textwrap import wrap
 import sys
 import os
+# from toVideo import FPS
 # from decode import MAGIC_META_NUMBER
 
 
@@ -118,6 +119,7 @@ def writeFileToImage(inputFile, resX, resY, blockSide, outName, bytesPerPng):
     chunk_size = 3
     with open(inputFile, 'rb') as f:
         while (byte := f.read(chunk_size)):
+            # TODO: explain this
             if 3 * write_index // bytesPerPng > 0:
                 outFile = get_new_file_name(outName, 'png')
                 arrToImg(imgArr, resX, resY, outFile)
