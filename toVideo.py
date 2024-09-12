@@ -10,6 +10,7 @@ def generate_video():
               if img.endswith(".jpg") or
                  img.endswith(".jpeg") or
                  img.endswith("png")] 
+    images.sort()
      
     # Array images should only consider 
     # the image files ignoring others if any 
@@ -21,7 +22,7 @@ def generate_video():
     # the width, height of first image 
     height, width, layers = frame.shape   
   
-    video = cv2.VideoWriter(video_name, 0, 1, (width, height))  
+    video = cv2.VideoWriter(video_name, 0, 2, (width, height))  
   
     # Appending the images to the video one by one 
     for image in images:  
@@ -30,4 +31,6 @@ def generate_video():
     # Deallocating memories taken for window creation 
     cv2.destroyAllWindows()  
     video.release()  # releasing the video generated 
+
 generate_video()
+
